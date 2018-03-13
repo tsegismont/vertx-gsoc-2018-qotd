@@ -20,6 +20,8 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
   private static final Logger logger = LoggerFactory.getLogger(QuoteOfTheDayVerticle.class.getName());
 
   private JDBCClient jdbcClient;
+  private static final String QUOTES_PATH = "/quotes";
+  private static final String DEFAULT_AUTHOR_VALUE = "Unknown";
 
   @Override
   public void start(Future<Void> startFuture) throws Exception {
@@ -33,7 +35,47 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
     HttpServer server = vertx.createHttpServer();
     Router router = Router.router(vertx);
 
-    router.route("/quotes").handler(routingContext -> {
+    router.post(QUOTES_PATH).handler(routingContext -> {
+      HttpServerResponse response = routingContext.response();
+      routingContext.request().bodyHandler(requestBody -> {
+        JsonObject request = requestBody.toJsonObject();
+        String text = request.getString("text");
+        if (text == null) {
+          response.setStatusCode(404);
+          response.end("json in a POST request should have a 'text' filed");
+          return;
+        }
+
+        String author = request.getString("author");
+        if (author == null) {
+          author = DEFAULT_AUTHOR_VALUE;
+        }
+
+        String finalAuthor = author;
+        jdbcClient.getConnection(getConn -> {
+          if (getConn.succeeded()) {
+            SQLConnection connection = getConn.result();
+            String sqlToExecute = String.format("INSERT INTO quotes (text,author) VALUES ('%s', '%s');", text, finalAuthor);
+            connection.execute(sqlToExecute, exec -> {
+              if (exec.succeeded()) {
+                response.setStatusCode(200);
+                response.end();
+              } else {
+                logger.error("failed in query executing", exec.cause());
+                responseWithError(response);
+              }
+              connection.close();
+            });
+          } else {
+            logger.error("failed in db connection establishing", getConn.cause());
+            responseWithError(response);
+          }
+        });
+
+      });
+    });
+
+    router.get(QUOTES_PATH).handler(routingContext -> {
       HttpServerResponse response = routingContext.response();
       jdbcClient.getConnection(getConn -> {
         if (getConn.succeeded()) {
@@ -43,7 +85,6 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
             if (query.succeeded()) {
               JsonArray responseBody = new JsonArray();
               query.result().getRows().forEach(responseBody::add);
-              logger.info("fine");
               response.end(responseBody.toBuffer());
             } else {
               logger.error("failed in query executing", query.cause());
@@ -113,5 +154,10 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
       }
     });
     return future;
+  }
+
+  @Override
+  public void stop() throws Exception {
+    jdbcClient.close();
   }
 }

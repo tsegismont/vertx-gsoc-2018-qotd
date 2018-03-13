@@ -1,9 +1,11 @@
 package io.vertx.gsoc2018.qotd;
 
 import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.web.client.WebClient;
@@ -22,11 +24,16 @@ public class QuoteOfTheDayVerticleTest {
 
   private static final int PORT = 8888;
 
-  private Vertx vertx = Vertx.vertx();
-  private WebClient webClient = WebClient.create(vertx, new WebClientOptions().setDefaultPort(PORT));
+  private Vertx vertx;
+  private WebClient webClient;
+  private static final String DEFAULT_AUTHOR_VALUE = "Unknown";
+  private static String SAMPLE_QUOTE_TEXT = "What I did not know was I was deeply attracted to the big space.";
+  private static String SAMPLE_AUTHOR_NAME = "David Hockney";
 
   @Before
   public void setup(TestContext testContext) {
+    vertx = Vertx.vertx();
+    webClient = WebClient.create(vertx, new WebClientOptions().setDefaultPort(PORT));
     JsonObject config = new JsonObject().put("http.port", PORT);
     DeploymentOptions deploymentOptions = new DeploymentOptions().setConfig(config);
     vertx.deployVerticle(new QuoteOfTheDayVerticle(), deploymentOptions, testContext.asyncAssertSuccess());
@@ -40,11 +47,85 @@ public class QuoteOfTheDayVerticleTest {
   @Test
   public void testGetQuotes(TestContext testContext) {
     webClient.get("/quotes")
-        .as(BodyCodec.jsonArray())
-        .send(testContext.asyncAssertSuccess(response -> {
-          testContext.assertEquals(200, response.statusCode(), response.bodyAsString());
-          JsonArray quotes = response.body();
-          testContext.assertFalse(quotes.isEmpty());
-        }));
+      .as(BodyCodec.jsonArray())
+      .send(testContext.asyncAssertSuccess(response -> {
+        testContext.assertEquals(200, response.statusCode(), response.bodyAsString());
+        JsonArray quotes = response.body();
+        testContext.assertFalse(quotes.isEmpty());
+      }));
+  }
+
+  @Test
+  public void testPostQuotes(TestContext testContext) {
+
+    int currentAmountOfQuotes = getCurrentQuotes(testContext).size();
+
+    JsonObject quote = new JsonObject()
+      .put("text", SAMPLE_QUOTE_TEXT)
+      .put("author", SAMPLE_AUTHOR_NAME);
+
+    Async async = testContext.async();
+
+    webClient.post("/quotes")
+      .as(BodyCodec.none())
+      .sendJsonObject(quote, testContext.asyncAssertSuccess(response -> {
+        testContext.assertEquals(200, response.statusCode(), response.bodyAsString());
+        async.countDown();
+      }));
+
+    async.await();
+    testContext.assertTrue(getCurrentQuotes(testContext).size() == currentAmountOfQuotes + 1);
+  }
+
+  @Test
+  public void testPostQuotesWithoutAuthorName(TestContext testContext) {
+
+    JsonObject quote = new JsonObject()
+      .put("text", SAMPLE_QUOTE_TEXT);
+
+    Async async = testContext.async();
+
+    webClient.post("/quotes")
+      .as(BodyCodec.none())
+      .sendJsonObject(quote, testContext.asyncAssertSuccess(response -> {
+        testContext.assertEquals(200, response.statusCode(), response.bodyAsString());
+        async.countDown();
+      }));
+
+    async.await();
+
+    testContext.assertTrue(getCurrentQuotes(testContext).stream()
+      .map(element -> (JsonObject) element)
+      .anyMatch(element ->
+        element.getString("author").equals(DEFAULT_AUTHOR_VALUE) &&
+          element.getString("text").equals(SAMPLE_QUOTE_TEXT)
+      )
+    );
+  }
+
+  @Test
+  public void testPostQuotesWithoutText(TestContext testContext) {
+    JsonObject quote = new JsonObject()
+      .put("author", SAMPLE_AUTHOR_NAME);
+
+    webClient.post("/quotes")
+      .as(BodyCodec.none())
+      .sendJsonObject(quote, testContext.asyncAssertSuccess(response -> {
+        testContext.assertEquals(404, response.statusCode(), response.bodyAsString());
+      }));
+  }
+
+  private JsonArray getCurrentQuotes(TestContext testContext) {
+    Async async = testContext.async();
+    Future<JsonArray> quotes = Future.future();
+    webClient.get("/quotes")
+      .as(BodyCodec.jsonArray())
+      .send(testContext.asyncAssertSuccess(response -> {
+        testContext.assertEquals(200, response.statusCode(), response.bodyAsString());
+        quotes.complete(response.body());
+        async.countDown();
+      }));
+    async.await();
+    return quotes.result();
   }
 }
