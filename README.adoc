@@ -80,4 +80,4 @@ In order to ease the review:
 
 The http://vertx.io/docs[Vert.x docs] have all the information you need to implement the assessment application.
 
-If you are not sure how to proceed with one or more of the tasks, get in touch with the possible mentors (email links on the https://wiki.eclipse.org/Google_Summer_of_Code_2018_Ideas#Eclipse_Vert.x[Eclipse wiki page for GSoC] or you can link:/issue/new[file an issue] in this project).
+If you are not sure how to proceed with one or more of the tasks, get in touch with the possible mentors (email links on the https://wiki.eclipse.org/Google_Summer_of_Code_2018_Ideas#Eclipse_Vert.x[Eclipse wiki page for GSoC] or you can https://github.com/tsegismont/vertx-gsoc-2018-qotd/issues/new[file an issue] in this project).
