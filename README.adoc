@@ -1,9 +1,13 @@
 = Eclipse Vert.x GSoC 2018 Assessment App
+:toc:
+:toc-placement!:
 
 In 2018, the Eclipse Vert.x team proposes subjects for Google Summer of Code through the Eclipse organization.
 
 In addition to the GSoC proposal document, we ask candidates to implement a simple Vert.x application.
 This will help us make sure candidates have a basic understanding of asynchronous programming and the Vert.x toolkit.
+
+toc::[]
 
 == The assessment app
 
