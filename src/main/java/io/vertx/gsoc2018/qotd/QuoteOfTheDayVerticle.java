@@ -3,6 +3,8 @@ package io.vertx.gsoc2018.qotd;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.jdbc.JDBCClient;
 import io.vertx.ext.sql.SQLConnection;
 
@@ -10,6 +12,8 @@ import io.vertx.ext.sql.SQLConnection;
  * @author Thomas Segismont
  */
 public class QuoteOfTheDayVerticle extends AbstractVerticle {
+
+  private static final Logger logger = LoggerFactory.getLogger(QuoteOfTheDayVerticle.class.getName());
 
   private JDBCClient jdbcClient;
 
@@ -21,8 +25,23 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
     jdbcClient = JDBCClient.createShared(vertx, jdbcConfig);
 
-    Future<Void> initSchema = runScript("classpath:db.sql");
-    Future<Void> importData = runScript("classpath:import.sql");
+    Future<Void> initSchema = runScript("db.sql");
+
+    initSchema.setHandler(initSchemaResult -> {
+      if (initSchemaResult.succeeded()) {
+        logger.info("initial schema successfully had been loaded");
+        Future<Void> importData = runScript("import.sql");
+        importData.setHandler(dataImportResult -> {
+          if (dataImportResult.succeeded()) {
+            logger.info("initial data had been loaded");
+          } else {
+            logger.error("failed in attempt to load initial data", dataImportResult.cause());
+          }
+        });
+      } else {
+        logger.error("failed in attempt to load initial schema", initSchemaResult.cause());
+      }
+    });
 
     int port = config().getInteger("http.port", 8080);
 
@@ -32,19 +51,28 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
   private Future<Void> runScript(String script) {
     Future<Void> future = Future.future();
-    jdbcClient.getConnection(getConn -> {
-      if (getConn.succeeded()) {
-        SQLConnection connection = getConn.result();
-        connection.execute("RUNSCRIPT FROM '" + script + "'", exec -> {
-          connection.close();
-          if (exec.succeeded()) {
-            future.succeeded();
+
+    vertx.fileSystem().readFile(script, fileReadResult -> {
+      if (fileReadResult.succeeded()) {
+        jdbcClient.getConnection(getConn -> {
+          if (getConn.succeeded()) {
+            SQLConnection connection = getConn.result();
+            String sqlToExecute = fileReadResult.result().toString();
+            logger.info("Executing sql statement " + sqlToExecute);
+            connection.execute(sqlToExecute, exec -> {
+              connection.close();
+              if (exec.succeeded()) {
+                future.complete();
+              } else {
+                future.fail(exec.cause());
+              }
+            });
           } else {
-            future.fail(exec.cause());
+            future.fail(getConn.cause());
           }
         });
       } else {
-        future.fail(getConn.cause());
+        future.fail(fileReadResult.cause());
       }
     });
     return future;
