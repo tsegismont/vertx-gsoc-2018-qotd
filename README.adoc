@@ -1,0 +1,79 @@
+= Eclipse Vert.x GSoC 2018 Assessment App
+
+In 2018, the Eclipse Vert.x team proposes subjects for Google Summer of Code through the Eclipse organization.
+
+In addition to the GSoC proposal document, we ask candidates to implement a simple Vert.x application.
+This will help us make sure candidates have a basic understanding of asynchronous programming and the Vert.x toolkit.
+
+== The assessment app
+
+This repository contains a skeleton for a "Quotes Of The Day" Vert.x application.
+The Maven POM file is setup for you so just fork the repository and start coding.
+
+The application involves a few Vert.x modules: Vert.x Web, Vert.x Unit, JDBC Client.
+
+=== Running
+
+In a terminal, run:
+
+[source,shell]
+----
+mvn vertx:run
+----
+
+This will start the application on port `8080`. Application is redeployed when source code changes.
+
+=== Running tests
+
+In a terminal, run:
+
+[source,shell]
+----
+mvn test
+----
+
+== Tasks
+
+=== Setup and basic retrieval
+
+In `QuoteOfTheDayVerticle` class:
+
+- setup the database (schema and data)
+- setup a Vert.x Web `Router`
+
+When the HTTP server is ready, make sure that requests to `/quotes` will return all the quotes from the database in the JSON format.
+
+The `QuoteOfTheDayVerticleTest` unit test will verify this behavior.
+
+=== Post new quotes
+
+Modify your Vert.x Web `Router` so that a `POST` request to `/quotes` allows to insert a new quote in the database.
+
+Quotes must have a text and an author.
+If the author is not provided by the user, the application should add the default "Unknown" value.
+If the text is not provided, the application should reject the request with `404` status.
+
+Add tests to `QuoteOfTheDayVerticleTest` to verify your code.
+
+=== Realtime quotes
+
+Modify the code so that websocket requests to `/realtime` receive any new quote inserted in the database.
+
+Add tests to `QuoteOfTheDayVerticleTest` to verify your code.
+
+== Submitting code
+
+Please share your implementation by providing a pull request to this repository.
+
+*Do not try to play smart by copying other candidates pull requests.*
+
+In order to ease the review:
+
+* rebase your pull request on `master` regularly
+* organize your `git` history to show one commit per task
+
+== Getting help
+
+The http://vertx.io/docs[Vert.x docs] have all the information you need to implement the assessment application.
+
+If you are not sure how to proceed with one or more of the tasks, get in touch with the possible mentors (you can file an issue in this project).
