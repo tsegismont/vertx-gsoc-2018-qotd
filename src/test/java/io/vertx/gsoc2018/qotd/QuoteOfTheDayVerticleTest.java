@@ -3,6 +3,7 @@ package io.vertx.gsoc2018.qotd;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
@@ -23,6 +24,7 @@ import org.junit.runner.RunWith;
 public class QuoteOfTheDayVerticleTest {
 
   private static final int PORT = 8888;
+  private static final String HOST = "0.0.0.0";
 
   private Vertx vertx;
   private WebClient webClient;
@@ -41,7 +43,31 @@ public class QuoteOfTheDayVerticleTest {
 
   @After
   public void tearDown(TestContext testContext) {
+    webClient.close();
     vertx.close(testContext.asyncAssertSuccess());
+  }
+
+  @Test
+  public void testRealtimeWebSocket(TestContext testContext) throws InterruptedException {
+
+    Async async = testContext.async();
+    HttpClient httpClient = vertx.createHttpClient();
+    httpClient.websocket(PORT, HOST, "/realtime", ws -> {
+      ws.handler(data -> {
+        JsonObject json = data.toJsonObject();
+        testContext.assertEquals(json.getString("author"), SAMPLE_AUTHOR_NAME);
+        testContext.assertEquals(json.getString("text"), SAMPLE_QUOTE_TEXT);
+        async.countDown();
+      });
+    });
+
+    // wait some time for websocket connection establishing and subscription availability
+    Thread.sleep(1000);
+
+    // force receiving a update
+    postQuote(SAMPLE_AUTHOR_NAME, SAMPLE_QUOTE_TEXT, testContext);
+    async.await(5000);
+    httpClient.close();
   }
 
   @Test
@@ -57,23 +83,8 @@ public class QuoteOfTheDayVerticleTest {
 
   @Test
   public void testPostQuotes(TestContext testContext) {
-
     int currentAmountOfQuotes = getCurrentQuotes(testContext).size();
-
-    JsonObject quote = new JsonObject()
-      .put("text", SAMPLE_QUOTE_TEXT)
-      .put("author", SAMPLE_AUTHOR_NAME);
-
-    Async async = testContext.async();
-
-    webClient.post("/quotes")
-      .as(BodyCodec.none())
-      .sendJsonObject(quote, testContext.asyncAssertSuccess(response -> {
-        testContext.assertEquals(200, response.statusCode(), response.bodyAsString());
-        async.countDown();
-      }));
-
-    async.await();
+    postQuote(SAMPLE_AUTHOR_NAME, SAMPLE_QUOTE_TEXT, testContext);
     testContext.assertTrue(getCurrentQuotes(testContext).size() == currentAmountOfQuotes + 1);
   }
 
@@ -127,5 +138,23 @@ public class QuoteOfTheDayVerticleTest {
       }));
     async.await();
     return quotes.result();
+  }
+
+
+  private void postQuote(String author, String text, TestContext testContext) {
+    JsonObject quote = new JsonObject()
+      .put("text", text)
+      .put("author", author);
+
+    Async async = testContext.async();
+
+    webClient.post("/quotes")
+      .as(BodyCodec.none())
+      .sendJsonObject(quote, testContext.asyncAssertSuccess(response -> {
+        testContext.assertEquals(200, response.statusCode(), response.bodyAsString());
+        async.countDown();
+      }));
+
+    async.await();
   }
 }

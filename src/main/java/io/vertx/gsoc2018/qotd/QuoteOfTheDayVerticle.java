@@ -1,7 +1,10 @@
 package io.vertx.gsoc2018.qotd;
 
+import io.reactivex.disposables.Disposable;
+import io.reactivex.subjects.PublishSubject;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonArray;
@@ -20,11 +23,14 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
   private static final Logger logger = LoggerFactory.getLogger(QuoteOfTheDayVerticle.class.getName());
 
   private JDBCClient jdbcClient;
+  private final PublishSubject<JsonObject> dbUpdatesPublisher = PublishSubject.create();
   private static final String QUOTES_PATH = "/quotes";
   private static final String DEFAULT_AUTHOR_VALUE = "Unknown";
+  private static final String AUTHOR_FILED = "author";
+  private static final String TEXT_FILED = "text";
 
   @Override
-  public void start(Future<Void> startFuture) throws Exception {
+  public void start(Future<Void> startFuture) {
     JsonObject jdbcConfig = new JsonObject()
         .put("url", "jdbc:h2:mem:test;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1")
         .put("driver_class", "org.h2.Driver");
@@ -36,17 +42,18 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
     Router router = Router.router(vertx);
 
     router.post(QUOTES_PATH).handler(routingContext -> {
+      logger.info("receive post");
       HttpServerResponse response = routingContext.response();
       routingContext.request().bodyHandler(requestBody -> {
         JsonObject request = requestBody.toJsonObject();
-        String text = request.getString("text");
+        String text = request.getString(TEXT_FILED);
         if (text == null) {
           response.setStatusCode(404);
           response.end("json in a POST request should have a 'text' filed");
           return;
         }
 
-        String author = request.getString("author");
+        String author = request.getString(AUTHOR_FILED);
         if (author == null) {
           author = DEFAULT_AUTHOR_VALUE;
         }
@@ -60,6 +67,12 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
               if (exec.succeeded()) {
                 response.setStatusCode(200);
                 response.end();
+
+                // notify subscribers about database update
+                JsonObject newQuote = new JsonObject()
+                  .put(AUTHOR_FILED, finalAuthor)
+                  .put(TEXT_FILED, text);
+                dbUpdatesPublisher.onNext(newQuote);
               } else {
                 logger.error("failed in query executing", exec.cause());
                 responseWithError(response);
@@ -98,6 +111,19 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
         }
       });
     });
+
+    server.websocketHandler(ws -> {
+      if (ws.path().equals("/realtime")) {
+        ws.accept();
+        Disposable subscription = dbUpdatesPublisher.subscribe(updateMessage -> {
+          ws.writeTextMessage(updateMessage.toString());
+        });
+        ws.closeHandler(v -> subscription.dispose());
+      } else {
+        ws.reject();
+      }
+    });
+
 
     int port = config().getInteger("http.port", 8080);
     server.requestHandler(router::accept).listen(port);
@@ -157,7 +183,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
   }
 
   @Override
-  public void stop() throws Exception {
+  public void stop() {
     jdbcClient.close();
   }
 }
