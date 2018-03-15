@@ -2,7 +2,9 @@ package io.vertx.gsoc2018.qotd;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.Handler;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -14,6 +16,8 @@ import io.vertx.ext.web.handler.BodyHandler;
  */
 public class QuoteOfTheDayVerticle extends AbstractVerticle {
   private static final String DEFAULT_AUTHOR = "Unknown";
+  private static final String REAL_TIME_QUEUE = "real_time_quote";
+
   private DatabaseService databaseService;
 
   @Override
@@ -33,7 +37,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
     router.route().handler(BodyHandler.create());
 
-    // router.route().consumes("application/json").produces("application/json");
+    router.route().consumes("application/json").produces("application/json");
 
     router.get("/quotes").handler(this::getAllQuotes);
     router.post("/quotes").handler(this::postNewQuote);
@@ -42,7 +46,9 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
     prepareDatabaseFuture.compose(v -> {
       Future<HttpServer> webServerFuture = Future.future();
-      vertx.createHttpServer().requestHandler(router::accept)
+      vertx.createHttpServer()
+        .websocketHandler(getWebSocketHandler())
+        .requestHandler(router::accept)
         .listen(port, webServerFuture.completer());
       return webServerFuture;
     }).setHandler(res -> {
@@ -88,6 +94,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
     databaseService.postNewQuote(newQuote, res -> {
       if (res.succeeded()) {
+        vertx.eventBus().publish(REAL_TIME_QUEUE, newQuote);
         routingContext.response().setStatusCode(200)
           .putHeader("Content-Type", "application/json; charset=utf-8")
           .end(newQuote.encodePrettily());
@@ -98,5 +105,18 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
       }
     });
 
+  }
+
+  private Handler<ServerWebSocket> getWebSocketHandler() {
+    return serverWebSocket -> {
+      if (serverWebSocket.path().equals("/realtime")) {
+        serverWebSocket.accept();
+        vertx.eventBus().consumer(REAL_TIME_QUEUE, message -> {
+          serverWebSocket.writeTextMessage(message.body().toString());
+        });
+      } else {
+        serverWebSocket.reject();
+      }
+    };
   }
 }
