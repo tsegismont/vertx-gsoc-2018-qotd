@@ -12,7 +12,7 @@ import io.vertx.ext.web.handler.BodyHandler;
 
 /**
  * @author Thomas Segismont
- * @author Billy Yuan
+ * @author Billy Yuan <billy112487983@gmail.com>
  */
 public class QuoteOfTheDayVerticle extends AbstractVerticle {
   private static final String DEFAULT_AUTHOR = "Unknown";
@@ -21,7 +21,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
   private DatabaseService databaseService;
 
   @Override
-  public void start(Future<Void> startFuture) throws Exception {
+  public void start(Future<Void> startFuture) {
     JsonObject jdbcConfig = new JsonObject()
       .put("url", "jdbc:h2:mem:test;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1")
       .put("driver_class", "org.h2.Driver");
@@ -49,7 +49,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
       vertx.createHttpServer()
         .websocketHandler(getWebSocketHandler())
         .requestHandler(router::accept)
-        .listen(port, webServerFuture.completer());
+        .listen(port, webServerFuture);
       return webServerFuture;
     }).setHandler(res -> {
       if (res.succeeded()) {
@@ -78,19 +78,20 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
     JsonObject body = routingContext.getBodyAsJson();
     String text = body.getString("text");
     String author = body.getString("author");
+
     if (text == null) {
       routingContext.response().setStatusCode(404)
         .putHeader("Content-Type", "application/json; charset=utf-8")
         .end();
       return;
     }
-    if (author == null) {
-      author = DEFAULT_AUTHOR;
-    }
 
-    JsonObject newQuote = new JsonObject()
-      .put("text", text)
-      .put("author", author);
+    JsonObject newQuote = new JsonObject().put("text", text);
+    if (author == null) {
+      newQuote.put("author", DEFAULT_AUTHOR);
+    } else {
+      newQuote.put("author", author);
+    }
 
     databaseService.postNewQuote(newQuote, res -> {
       if (res.succeeded()) {
@@ -104,7 +105,6 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
           .end();
       }
     });
-
   }
 
   private Handler<ServerWebSocket> getWebSocketHandler() {

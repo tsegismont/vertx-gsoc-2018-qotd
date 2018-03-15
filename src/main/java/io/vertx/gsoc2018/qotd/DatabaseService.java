@@ -12,9 +12,25 @@ import io.vertx.core.json.JsonObject;
  */
 
 public interface DatabaseService {
+  /**
+   * Setup the schema and import the initial data.
+   *
+   * @param resultHandler the handler which is called once the database is ready.
+   */
   void prepareDatabase(Handler<AsyncResult<Void>> resultHandler);
 
+  /**
+   * Get all quotes from the database.
+   *
+   * @param resultHandler the handler which is called once the data is fetched.
+   */
   void getAllQuotes(Handler<AsyncResult<JsonArray>> resultHandler);
 
+  /**
+   * Post a new quote to the database.
+   *
+   * @param quote         the new quote which will be inserted into the database.
+   * @param resultHandler the handler which is called once the insertion is complete.
+   */
   void postNewQuote(JsonObject quote, Handler<AsyncResult<Void>> resultHandler);
 }

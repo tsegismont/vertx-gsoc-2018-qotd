@@ -20,6 +20,7 @@ import java.util.concurrent.CountDownLatch;
 
 /**
  * @author Thomas Segismont
+ * @author Billy Yuan <billy112487983@gmail.com>
  */
 @RunWith(VertxUnitRunner.class)
 public class QuoteOfTheDayVerticleTest {

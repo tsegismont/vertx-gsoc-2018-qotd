@@ -85,7 +85,7 @@ public class DatabaseServiceImpl implements DatabaseService {
    * A method reading the resources in classpath, this method is executed asynchronously.
    *
    * @param filePath the path to load.
-   * @return the resource in the form of a String.
+   * @return a Future representing the result of loading the resource to a String.
    */
   private Future<String> loadClasspathResourcesAsString(String filePath) {
     Future<String> future = Future.future();
@@ -101,10 +101,10 @@ public class DatabaseServiceImpl implements DatabaseService {
   }
 
   /**
-   * A method to execute SQL scripts in the database.
+   * A method to execute SQL scripts from the filesystem.
    *
-   * @param script Path of the SQL script to run
-   * @return a Future representing the result
+   * @param script file classpath of the SQL script to run.
+   * @return a Future representing the result of running the script.
    */
   private Future<Void> runScript(String script) {
     Future<Void> future = Future.future();
