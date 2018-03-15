@@ -4,7 +4,6 @@ import io.reactivex.disposables.Disposable;
 import io.reactivex.subjects.PublishSubject;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
-import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonArray;
@@ -31,6 +30,13 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
   @Override
   public void start(Future<Void> startFuture) {
+    Future<Void> dbReady = Future.future();
+    Future<Void> httpServerReady = Future.future();
+
+    // complete startFuture only when db and http server started
+    compose(startFuture, dbReady, httpServerReady);
+    compose(startFuture, httpServerReady, dbReady);
+
     JsonObject jdbcConfig = new JsonObject()
         .put("url", "jdbc:h2:mem:test;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1")
         .put("driver_class", "org.h2.Driver");
@@ -127,7 +133,15 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
 
     int port = config().getInteger("http.port", 8080);
-    server.requestHandler(router::accept).listen(port);
+    server.requestHandler(router::accept).listen(port, listenHandler -> {
+      if (listenHandler.succeeded()) {
+        httpServerReady.complete();
+        logger.info("HTTP successfully started on port " + port);
+      } else {
+        httpServerReady.fail(listenHandler.cause());
+        logger.error("Failed to start server on port " + port, listenHandler.cause());
+      }
+    });
 
     Future<Void> initSchema = runScript("db.sql");
 
@@ -137,14 +151,31 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
         Future<Void> importData = runScript("import.sql");
         importData.setHandler(dataImportResult -> {
           if (dataImportResult.succeeded()) {
+            dbReady.complete();
             logger.info("initial data had been loaded");
-            startFuture.complete();
           } else {
+            dbReady.fail(dataImportResult.cause());
             logger.error("failed in attempt to load initial data", dataImportResult.cause());
           }
         });
       } else {
+        dbReady.fail(initSchema.cause());
         logger.error("failed in attempt to load initial schema", initSchemaResult.cause());
+      }
+    });
+  }
+
+  /**
+   * resultFuture will be completed only if conditionFuture will succeed at the moment when targetFuture will be completed
+   */
+  private void compose(Future<Void> resultFuture, Future<Void> conditionFuture, Future<Void> targetFuture) {
+    targetFuture.setHandler(result -> {
+      if (result.succeeded()) {
+        if (conditionFuture.succeeded()) {
+          resultFuture.complete();
+        }
+      } else {
+        resultFuture.tryFail(result.cause());
       }
     });
   }
