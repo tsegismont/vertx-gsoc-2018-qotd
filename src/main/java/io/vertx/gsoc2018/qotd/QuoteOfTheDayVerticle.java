@@ -62,8 +62,9 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
         jdbcClient.getConnection(getConn -> {
           if (getConn.succeeded()) {
             SQLConnection connection = getConn.result();
-            String sqlToExecute = String.format("INSERT INTO quotes (text,author) VALUES ('%s', '%s');", text, finalAuthor);
-            connection.execute(sqlToExecute, exec -> {
+            String sqlToExecute = "INSERT INTO quotes (text,author) VALUES (?, ?);";
+            JsonArray sqlParams = new JsonArray().add(text).add(finalAuthor);
+            connection.updateWithParams(sqlToExecute, sqlParams, exec -> {
               if (exec.succeeded()) {
                 response.setStatusCode(200);
                 response.end();
