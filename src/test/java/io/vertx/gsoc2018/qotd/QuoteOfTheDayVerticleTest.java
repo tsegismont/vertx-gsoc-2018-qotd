@@ -61,11 +61,10 @@ public class QuoteOfTheDayVerticleTest {
       });
     });
 
-    // wait some time for websocket connection establishing and subscription availability
-    Thread.sleep(1000);
-
     // force receiving a update
-    postQuote(SAMPLE_AUTHOR_NAME, SAMPLE_QUOTE_TEXT, testContext);
+    for (int i = 0; i < 100; i++) {
+      postQuote(SAMPLE_AUTHOR_NAME, SAMPLE_QUOTE_TEXT, testContext);
+    }
     async.await(5000);
     httpClient.close();
   }
