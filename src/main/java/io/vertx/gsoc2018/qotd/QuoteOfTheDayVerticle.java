@@ -6,6 +6,7 @@ import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.BodyHandler;
 
 /**
  * @author Thomas Segismont
@@ -14,6 +15,7 @@ import io.vertx.ext.web.RoutingContext;
 public class QuoteOfTheDayVerticle extends AbstractVerticle {
   private DatabaseService databaseService;
 
+  private static String DEFAULT_AUTHOR = "Unknown";
   @Override
   public void start(Future<Void> startFuture) throws Exception {
     JsonObject jdbcConfig = new JsonObject()
@@ -29,11 +31,12 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
     Router router = Router.router(vertx);
 
-    // router.route().handler(BodyHandler.create());
+     router.route().handler(BodyHandler.create());
 
     // router.route().consumes("application/json").produces("application/json");
 
     router.get("/quotes").handler(this::getAllQuotes);
+    router.post("/quotes").handler(this::postNewQuote);
 
     // setup database and web server
 
@@ -63,5 +66,37 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
                       .end();
       }
     });
+  }
+
+  private void postNewQuote(RoutingContext routingContext) {
+    JsonObject body = routingContext.getBodyAsJson();
+    String text = body.getString("text");
+    String author = body.getString("author");
+    if (text == null) {
+      routingContext.response().setStatusCode(404)
+        .putHeader("Content-Type", "application/json; charset=utf-8")
+        .end();
+      return;
+    }
+    if (author == null) {
+      author = DEFAULT_AUTHOR;
+    }
+
+    JsonObject newQuote = new JsonObject()
+      .put("text", text)
+      .put("author", author);
+
+    databaseService.postNewQuote(newQuote, res -> {
+      if (res.succeeded()) {
+        routingContext.response().setStatusCode(200)
+          .putHeader("Content-Type", "application/json; charset=utf-8")
+          .end(newQuote.encodePrettily());
+      } else {
+        routingContext.response().setStatusCode(400)
+          .putHeader("Content-Type", "application/json; charset=utf-8")
+          .end();
+      }
+    });
+
   }
 }

@@ -47,4 +47,50 @@ public class QuoteOfTheDayVerticleTest {
           testContext.assertFalse(quotes.isEmpty());
         }));
   }
+
+  @Test
+  public void testPostNewQuoteWithFullInformation(TestContext testContext) {
+    JsonObject newQuoteWithFullInformation = new JsonObject()
+      .put("author", "testAuthor1")
+      .put("text", "testText1");
+
+    webClient.post("/quotes")
+      .putHeader("Content-Type", "application/json; charset=utf-8")
+      .as(BodyCodec.jsonObject())
+      .sendJsonObject(newQuoteWithFullInformation, testContext.asyncAssertSuccess(response -> {
+        testContext.assertEquals(200, response.statusCode(), response.bodyAsString());
+        testContext.assertEquals(newQuoteWithFullInformation, response.body());
+      }));
+  }
+
+  @Test
+  public void testPostNewQuoteWithNoAuthor(TestContext testContext) {
+    JsonObject newQuoteWithNoAuthor = new JsonObject()
+      .put("text", "testText2");
+
+    JsonObject expectedResponseBody = new JsonObject()
+      .put("author", "Unknown")
+      .put("text", "testText2");
+
+    webClient.post("/quotes")
+      .putHeader("Content-Type", "application/json; charset=utf-8")
+      .as(BodyCodec.jsonObject())
+      .sendJsonObject(newQuoteWithNoAuthor, testContext.asyncAssertSuccess(response -> {
+        testContext.assertEquals(200, response.statusCode(), response.bodyAsString());
+        testContext.assertEquals(expectedResponseBody, response.body());
+      }));
+  }
+
+  @Test
+  public void testPostNewQuoteWithNoText(TestContext testContext) {
+    JsonObject newQuoteWithNoText = new JsonObject()
+      .put("author", "testAuthor3");
+
+    webClient.post("/quotes")
+      .putHeader("Content-Type", "application/json; charset=utf-8")
+      .as(BodyCodec.jsonObject())
+      .sendJsonObject(newQuoteWithNoText, testContext.asyncAssertSuccess(response -> {
+        testContext.assertEquals(404, response.statusCode(), response.bodyAsString());
+      }));
+  }
 }

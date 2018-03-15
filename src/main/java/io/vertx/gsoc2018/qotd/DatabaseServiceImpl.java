@@ -58,7 +58,27 @@ public class DatabaseServiceImpl implements DatabaseService {
 
   @Override
   public void postNewQuote(JsonObject quote, Handler<AsyncResult<Void>> resultHandler) {
-    // stub
+    String text = quote.getString("text");
+    String author = quote.getString("author");
+    JsonArray params = new JsonArray()
+      .add(text)
+      .add(author);
+
+    jdbcClient.getConnection(res -> {
+      if (res.succeeded()) {
+        SQLConnection sqlConnection = res.result();
+        sqlConnection.updateWithParams("INSERT INTO quotes (text, author) VALUES (?, ?)", params, res2 -> {
+          if (res2.succeeded()) {
+            sqlConnection.close();
+            resultHandler.handle(Future.succeededFuture());
+          } else {
+            resultHandler.handle(Future.failedFuture(res2.cause()));
+          }
+        });
+      } else {
+        resultHandler.handle(Future.failedFuture(res.cause()));
+      }
+    });
   }
 
   /**
