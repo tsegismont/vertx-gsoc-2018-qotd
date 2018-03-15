@@ -154,3 +154,9 @@ hs_err_pid*
 
 .idea/
 *.iml
+
+# Maven files
+target/
+
+# Vert.x bin files
+.vertx/
