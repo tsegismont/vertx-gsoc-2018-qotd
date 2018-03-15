@@ -48,11 +48,13 @@ public class QuoteOfTheDayVerticleTest {
   }
 
   @Test
-  public void testRealtimeWebSocket(TestContext testContext) throws InterruptedException {
+  public void testRealtimeWebSocket(TestContext testContext) {
 
     Async async = testContext.async();
+    Async connected = testContext.async();
     HttpClient httpClient = vertx.createHttpClient();
     httpClient.websocket(PORT, HOST, "/realtime", ws -> {
+      connected.countDown();
       ws.handler(data -> {
         JsonObject json = data.toJsonObject();
         testContext.assertEquals(json.getString("author"), SAMPLE_AUTHOR_NAME);
@@ -61,10 +63,9 @@ public class QuoteOfTheDayVerticleTest {
       });
     });
 
+    connected.await();
     // force receiving a update
-    for (int i = 0; i < 100; i++) {
-      postQuote(SAMPLE_AUTHOR_NAME, SAMPLE_QUOTE_TEXT, testContext);
-    }
+    postQuote(SAMPLE_AUTHOR_NAME, SAMPLE_QUOTE_TEXT, testContext);
     async.await(5000);
     httpClient.close();
   }
