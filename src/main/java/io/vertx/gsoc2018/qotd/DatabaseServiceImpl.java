@@ -87,7 +87,7 @@ public class DatabaseServiceImpl implements DatabaseService {
    * @param filePath the path to load.
    * @return the resource in the form of a String.
    */
-  public Future<String> loadClasspathResourcesAsString(String filePath) {
+  private Future<String> loadClasspathResourcesAsString(String filePath) {
     Future<String> future = Future.future();
     FileSystem fileSystem = vertx.fileSystem();
     fileSystem.readFile(filePath, res -> {

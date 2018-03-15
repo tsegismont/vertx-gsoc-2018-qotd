@@ -40,12 +40,12 @@ public class QuoteOfTheDayVerticleTest {
   @Test
   public void testGetQuotes(TestContext testContext) {
     webClient.get("/quotes")
-        .as(BodyCodec.jsonArray())
-        .send(testContext.asyncAssertSuccess(response -> {
-          testContext.assertEquals(200, response.statusCode(), response.bodyAsString());
-          JsonArray quotes = response.body();
-          testContext.assertFalse(quotes.isEmpty());
-        }));
+      .as(BodyCodec.jsonArray())
+      .send(testContext.asyncAssertSuccess(response -> {
+        testContext.assertEquals(200, response.statusCode(), response.bodyAsString());
+        JsonArray quotes = response.body();
+        testContext.assertFalse(quotes.isEmpty());
+      }));
   }
 
   @Test

@@ -13,14 +13,14 @@ import io.vertx.ext.web.handler.BodyHandler;
  * @author Billy Yuan
  */
 public class QuoteOfTheDayVerticle extends AbstractVerticle {
+  private static final String DEFAULT_AUTHOR = "Unknown";
   private DatabaseService databaseService;
 
-  private static String DEFAULT_AUTHOR = "Unknown";
   @Override
   public void start(Future<Void> startFuture) throws Exception {
     JsonObject jdbcConfig = new JsonObject()
-        .put("url", "jdbc:h2:mem:test;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1")
-        .put("driver_class", "org.h2.Driver");
+      .put("url", "jdbc:h2:mem:test;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1")
+      .put("driver_class", "org.h2.Driver");
 
     databaseService = new DatabaseServiceImpl(vertx, jdbcConfig);
 
@@ -31,7 +31,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
     Router router = Router.router(vertx);
 
-     router.route().handler(BodyHandler.create());
+    router.route().handler(BodyHandler.create());
 
     // router.route().consumes("application/json").produces("application/json");
 
@@ -43,7 +43,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
     prepareDatabaseFuture.compose(v -> {
       Future<HttpServer> webServerFuture = Future.future();
       vertx.createHttpServer().requestHandler(router::accept)
-           .listen(port, webServerFuture.completer());
+        .listen(port, webServerFuture.completer());
       return webServerFuture;
     }).setHandler(res -> {
       if (res.succeeded()) {
@@ -58,12 +58,12 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
     databaseService.getAllQuotes(res -> {
       if (res.succeeded()) {
         routingContext.response().setStatusCode(200)
-                      .putHeader("Content-Type", "application/json; charset=utf-8")
-                      .end(res.result().toString());
+          .putHeader("Content-Type", "application/json; charset=utf-8")
+          .end(res.result().toString());
       } else {
         routingContext.response().setStatusCode(404)
-                      .putHeader("Content-Type", "application/json; charset=utf-8")
-                      .end();
+          .putHeader("Content-Type", "application/json; charset=utf-8")
+          .end();
       }
     });
   }
