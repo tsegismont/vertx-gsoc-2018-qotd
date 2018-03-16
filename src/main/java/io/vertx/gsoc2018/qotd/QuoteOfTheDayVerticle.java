@@ -98,7 +98,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
           .putHeader("Content-Type", "application/json; charset=utf-8")
           .end(newQuote.encodePrettily());
       } else {
-        routingContext.response().setStatusCode(400)
+        routingContext.response().setStatusCode(500)
           .putHeader("Content-Type", "application/json; charset=utf-8")
           .end();
       }
