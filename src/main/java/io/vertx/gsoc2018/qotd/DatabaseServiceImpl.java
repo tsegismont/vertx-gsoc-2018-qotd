@@ -4,7 +4,6 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
-import io.vertx.core.file.FileSystem;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.jdbc.JDBCClient;
@@ -16,18 +15,16 @@ import io.vertx.ext.sql.SQLConnection;
  */
 
 public class DatabaseServiceImpl implements DatabaseService {
-  private Vertx vertx;
   private JDBCClient jdbcClient;
 
   public DatabaseServiceImpl(Vertx vertx, JsonObject jdbcConfig) {
-    this.vertx = vertx;
     jdbcClient = JDBCClient.createShared(vertx, jdbcConfig);
   }
 
   @Override
   public void prepareDatabase(Handler<AsyncResult<Void>> resultHandler) {
-    Future<Void> initSchema = runScript("db.sql");
-    initSchema.compose(v -> runScript("import.sql")).setHandler(res -> {
+    Future<Void> initSchema = runScript("classpath:db.sql");
+    initSchema.compose(v -> runScript("classpath:import.sql")).setHandler(res -> {
       if (res.succeeded()) {
         resultHandler.handle(Future.succeededFuture());
       } else {
@@ -82,55 +79,28 @@ public class DatabaseServiceImpl implements DatabaseService {
   }
 
   /**
-   * A method reading the resources in classpath, this method is executed asynchronously.
-   *
-   * @param filePath the path to load.
-   * @return a Future representing the result of loading the resource to a String.
-   */
-  private Future<String> loadClasspathResourcesAsString(String filePath) {
-    Future<String> future = Future.future();
-    FileSystem fileSystem = vertx.fileSystem();
-    fileSystem.readFile(filePath, res -> {
-      if (res.succeeded()) {
-        future.complete(res.result().toString());
-      } else {
-        future.fail("Fail to read the file");
-      }
-    });
-    return future;
-  }
-
-  /**
-   * A method to execute SQL scripts from the filesystem.
+   * Runs a SQL script against a database.
    *
    * @param script file classpath of the SQL script to run.
    * @return a Future representing the result of running the script.
    */
   private Future<Void> runScript(String script) {
     Future<Void> future = Future.future();
-    loadClasspathResourcesAsString(script).setHandler(loadResource -> {
-      if (loadResource.succeeded()) {
-        String sqlScripts = loadResource.result();
-        jdbcClient.getConnection(getConn -> {
-          if (getConn.succeeded()) {
-            SQLConnection connection = getConn.result();
-            connection.execute(sqlScripts, exec -> {
-              connection.close();
-              if (exec.succeeded()) {
-                future.complete();
-              } else {
-                future.fail(exec.cause());
-              }
-            });
+    jdbcClient.getConnection(getConn -> {
+      if (getConn.succeeded()) {
+        SQLConnection connection = getConn.result();
+        connection.execute("RUNSCRIPT FROM '" + script + "'", exec -> {
+          connection.close();
+          if (exec.succeeded()) {
+            future.complete();
           } else {
-            future.fail(getConn.cause());
+            future.fail(exec.cause());
           }
         });
       } else {
-        future.fail(loadResource.cause());
+        future.fail(getConn.cause());
       }
     });
-
     return future;
   }
 
