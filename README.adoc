@@ -55,7 +55,7 @@ Modify your Vert.x Web `Router` so that a `POST` request to `/quotes` allows to 
 
 Quotes must have a text and an author.
 If the author is not provided by the user, the application should add the default "Unknown" value.
-If the text is not provided, the application should reject the request with `404` status.
+If the text is not provided, the application should reject the request with `400` status.
 
 Add tests to `QuoteOfTheDayVerticleTest` to verify your code.
 
