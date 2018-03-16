@@ -55,7 +55,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
   }
 
   private void responseWithError(HttpServerResponse response) {
-    response.setStatusCode(400);
+    response.setStatusCode(500);
     response.end("Something went wrong");
   }
 
