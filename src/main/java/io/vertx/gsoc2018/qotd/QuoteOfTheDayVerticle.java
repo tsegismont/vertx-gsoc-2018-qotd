@@ -1,6 +1,7 @@
 package io.vertx.gsoc2018.qotd;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.http.HttpServer;
@@ -32,9 +33,13 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
     Future<Void> dbReady = Future.future();
     Future<Void> httpServerReady = Future.future();
 
-    // complete startFuture only when db and http server started
-    compose(startFuture, dbReady, httpServerReady);
-    compose(startFuture, httpServerReady, dbReady);
+    CompositeFuture.all(dbReady, httpServerReady).setHandler(result -> {
+      if (result.succeeded()) {
+        startFuture.complete();
+      } else {
+        startFuture.fail(result.cause());
+      }
+    });
 
     JsonObject jdbcConfig = new JsonObject()
         .put("url", "jdbc:h2:mem:test;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1")
@@ -160,21 +165,6 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
       } else {
         dbReady.fail(initSchema.cause());
         logger.error("failed in attempt to load initial schema", initSchemaResult.cause());
-      }
-    });
-  }
-
-  /**
-   * resultFuture will be completed only if conditionFuture will succeed at the moment when targetFuture will be completed
-   */
-  private void compose(Future<Void> resultFuture, Future<Void> conditionFuture, Future<Void> targetFuture) {
-    targetFuture.setHandler(result -> {
-      if (result.succeeded()) {
-        if (conditionFuture.succeeded()) {
-          resultFuture.complete();
-        }
-      } else {
-        resultFuture.tryFail(result.cause());
       }
     });
   }
