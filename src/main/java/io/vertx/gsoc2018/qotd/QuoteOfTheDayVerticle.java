@@ -35,12 +35,10 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
     Router router = Router.router(vertx);
 
-    router.route().handler(BodyHandler.create());
-
     router.route().consumes("application/json").produces("application/json");
 
     router.get("/quotes").handler(this::getAllQuotes);
-    router.post("/quotes").handler(this::postNewQuote);
+    router.post("/quotes").handler(BodyHandler.create()).handler(this::postNewQuote);
 
     // setup database and web server
 
