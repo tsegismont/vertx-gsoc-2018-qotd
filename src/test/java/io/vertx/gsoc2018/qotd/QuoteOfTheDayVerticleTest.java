@@ -96,7 +96,7 @@ public class QuoteOfTheDayVerticleTest {
       .putHeader("Content-Type", "application/json; charset=utf-8")
       .as(BodyCodec.jsonObject())
       .sendJsonObject(newQuoteWithNoText, testContext.asyncAssertSuccess(response -> {
-        testContext.assertEquals(404, response.statusCode(), response.bodyAsString());
+        testContext.assertEquals(400, response.statusCode(), response.bodyAsString());
       }));
   }
 

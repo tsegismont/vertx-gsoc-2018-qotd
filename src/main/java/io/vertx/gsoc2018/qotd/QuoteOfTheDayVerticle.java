@@ -78,7 +78,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
     String author = body.getString("author");
 
     if (text == null) {
-      routingContext.response().setStatusCode(404)
+      routingContext.response().setStatusCode(400)
         .putHeader("Content-Type", "application/json; charset=utf-8")
         .end();
       return;
