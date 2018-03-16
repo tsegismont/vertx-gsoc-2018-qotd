@@ -1,9 +1,8 @@
 package io.vertx.gsoc2018.qotd;
 
-import io.reactivex.disposables.Disposable;
-import io.reactivex.subjects.PublishSubject;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonArray;
@@ -22,7 +21,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
   private static final Logger logger = LoggerFactory.getLogger(QuoteOfTheDayVerticle.class.getName());
 
   private JDBCClient jdbcClient;
-  private final PublishSubject<JsonObject> dbUpdatesPublisher = PublishSubject.create();
+  private static final String DB_UPDATES_ADDRESS = "db.updates";
   private static final String QUOTES_PATH = "/quotes";
   private static final String DEFAULT_AUTHOR_VALUE = "Unknown";
   private static final String AUTHOR_FILED = "author";
@@ -79,7 +78,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
                 JsonObject newQuote = new JsonObject()
                   .put(AUTHOR_FILED, finalAuthor)
                   .put(TEXT_FILED, text);
-                dbUpdatesPublisher.onNext(newQuote);
+                vertx.eventBus().publish(DB_UPDATES_ADDRESS, newQuote);
               } else {
                 logger.error("failed in query executing", exec.cause());
                 responseWithError(response);
@@ -122,10 +121,10 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
     server.websocketHandler(ws -> {
       if (ws.path().equals("/realtime")) {
         ws.accept();
-        Disposable subscription = dbUpdatesPublisher.subscribe(updateMessage -> {
-          ws.writeTextMessage(updateMessage.toString());
+        MessageConsumer<JsonObject> consumer = vertx.eventBus().consumer(DB_UPDATES_ADDRESS, message -> {
+          ws.writeTextMessage(message.body().toString());
         });
-        ws.closeHandler(v -> subscription.dispose());
+        ws.closeHandler(v -> consumer.unregister());
       } else {
         ws.reject();
       }
