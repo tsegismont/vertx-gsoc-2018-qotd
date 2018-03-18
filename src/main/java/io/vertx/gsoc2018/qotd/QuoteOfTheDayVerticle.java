@@ -14,6 +14,7 @@ import io.vertx.ext.sql.ResultSet;
 import io.vertx.ext.sql.SQLConnection;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.BodyHandler;
 
 
 
@@ -22,6 +23,9 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
   private static final Logger log = getLogger(QuoteOfTheDayVerticle.class.getName());
 
   public static final String QUOTES_PATH = "/quotes";
+  public static final String AUTHOR_FIELD = "author";
+  public static final String AUTHOR_FIELD_DEFAULT_VALUE = "Unknown";
+  public static final String TEXT_FIELD = "text";
 
   private JDBCClient jdbcClient;
 
@@ -37,6 +41,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
     Router router = Router.router(vertx);
     router.get(QUOTES_PATH).handler(this::getQuotes);
+    router.post(QUOTES_PATH).handler(BodyHandler.create()).handler(this::postQuote);
 
     initDatabase()
       .setHandler(asyncRes -> {
@@ -85,6 +90,43 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
         respondWithError(response);
       }
     });
+  }
+
+  private void postQuote(RoutingContext routingContext) {
+
+    HttpServerResponse response = routingContext.response();
+    JsonObject quote = routingContext.getBodyAsJson();
+
+    String author = quote.getString(AUTHOR_FIELD, AUTHOR_FIELD_DEFAULT_VALUE);
+    String text = quote.getString(TEXT_FIELD);
+    if (text == null) {
+      response.setStatusCode(400).end();
+    }
+    else {
+      JsonArray updateParams = new JsonArray()
+        .add(author)
+        .add(text);
+
+      jdbcClient.getConnection(connectionAsyncResult -> {
+        SQLConnection conn = connectionAsyncResult.result();
+        conn.updateWithParams("INSERT INTO quotes(author, text) VALUES (?,?)",
+                              updateParams,
+                              resultSet -> {
+                                if (resultSet.succeeded()) {
+                                  JsonObject result = new JsonObject()
+                                    .put(AUTHOR_FIELD, author)
+                                    .put(TEXT_FIELD, text);
+                                  response.end(result.toBuffer());
+                                }
+                                else {
+                                  respondWithError(response);
+                                }
+                                conn.close();
+                              });
+      });
+
+    }
+
   }
 
   private void respondWithError(HttpServerResponse response) {
