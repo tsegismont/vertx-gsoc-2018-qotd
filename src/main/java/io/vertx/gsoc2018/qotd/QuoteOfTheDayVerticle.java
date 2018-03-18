@@ -4,8 +4,10 @@ import static io.vertx.core.logging.LoggerFactory.getLogger;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
@@ -23,6 +25,9 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
   private static final Logger log = getLogger(QuoteOfTheDayVerticle.class.getName());
 
   public static final String QUOTES_PATH = "/quotes";
+  public static final String REALTIME_PATH = "/realtime";
+  public static final String REALTIME_ADDRESS = "realtime-quote";
+
   public static final String AUTHOR_FIELD = "author";
   public static final String AUTHOR_FIELD_DEFAULT_VALUE = "Unknown";
   public static final String TEXT_FIELD = "text";
@@ -42,6 +47,8 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
     Router router = Router.router(vertx);
     router.get(QUOTES_PATH).handler(this::getQuotes);
     router.post(QUOTES_PATH).handler(BodyHandler.create()).handler(this::postQuote);
+
+    server.websocketHandler(this::quotesRealtimeHandler);
 
     initDatabase()
       .setHandler(asyncRes -> {
@@ -113,10 +120,15 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
                               updateParams,
                               resultSet -> {
                                 if (resultSet.succeeded()) {
+
                                   JsonObject result = new JsonObject()
                                     .put(AUTHOR_FIELD, author)
                                     .put(TEXT_FIELD, text);
+                                  
                                   response.end(result.toBuffer());
+
+                                  this.vertx.eventBus()
+                                            .publish(REALTIME_ADDRESS, result.toString());
                                 }
                                 else {
                                   respondWithError(response);
@@ -125,6 +137,20 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
                               });
       });
 
+    }
+
+  }
+
+  private void quotesRealtimeHandler(ServerWebSocket ws) {
+
+    if (ws.path().equals(REALTIME_PATH)) {
+      ws.accept();
+      vertx.eventBus().consumer(REALTIME_ADDRESS,
+                                (Message<Object> message) ->
+                                  ws.writeTextMessage(message.body().toString()));
+    }
+    else {
+      ws.reject();
     }
 
   }
