@@ -1,5 +1,12 @@
 package io.vertx.gsoc2018.qotd;
 
+import static io.vertx.gsoc2018.qotd.QuoteOfTheDayVerticle.QUOTES_PATH;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
@@ -9,14 +16,7 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.ext.web.codec.BodyCodec;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
-/**
- * @author Thomas Segismont
- */
 @RunWith(VertxUnitRunner.class)
 public class QuoteOfTheDayVerticleTest {
 
@@ -39,9 +39,9 @@ public class QuoteOfTheDayVerticleTest {
 
   @Test
   public void testGetQuotes(TestContext testContext) {
-    webClient.get("/quotes")
-        .as(BodyCodec.jsonArray())
-        .send(testContext.asyncAssertSuccess(response -> {
+    webClient.get(QUOTES_PATH)
+             .as(BodyCodec.jsonArray())
+             .send(testContext.asyncAssertSuccess(response -> {
           testContext.assertEquals(200, response.statusCode(), response.bodyAsString());
           JsonArray quotes = response.body();
           testContext.assertFalse(quotes.isEmpty());
