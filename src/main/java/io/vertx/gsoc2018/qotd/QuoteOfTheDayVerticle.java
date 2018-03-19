@@ -38,7 +38,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
         connection.execute("RUNSCRIPT FROM '" + script + "'", exec -> {
           connection.close();
           if (exec.succeeded()) {
-            future.succeeded();
+            future.complete();
           } else {
             future.fail(exec.cause());
           }
