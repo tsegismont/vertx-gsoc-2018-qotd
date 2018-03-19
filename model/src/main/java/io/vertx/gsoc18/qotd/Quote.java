@@ -1,9 +1,31 @@
 package io.vertx.gsoc18.qotd;
 
+import io.vertx.core.json.JsonObject;
+
+import java.util.List;
+
 public class Quote {
   private Integer quoteId;
   private String text;
   private String author;
+
+  public Quote(String text, String author) {
+    this.quoteId = -1;
+    this.text = text;
+    this.author = author;
+  }
+
+  public Quote(int quoteId, String text, String author) {
+    this.quoteId = quoteId;
+    this.text = text;
+    this.author = author;
+  }
+
+  public Quote(JsonObject json) {
+    this.quoteId = json.getInteger("quote_id");
+    this.text = json.getString("text");
+    this.author = json.getString("author");
+  }
 
   public Integer getQuoteId() {
     return quoteId;
