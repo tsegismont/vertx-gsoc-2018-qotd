@@ -27,7 +27,8 @@ public class QotdStore {
     Single<Boolean> initSchema = runScript("classpath:db.sql");
     Single<Boolean> importData = runScript("classpath:import.sql");
 
-    Single.zip(initSchema, importData, (b1, b2) -> b1 && b2)
+    Single.concat(initSchema, importData)
+      .all(res -> res)
       .subscribe(res -> {
         if(res) {
           LOGGER.info("Initialized database successfully");
