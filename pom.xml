@@ -6,6 +6,7 @@
 
   <groupId>io.vertx.gsoc2018</groupId>
   <artifactId>qotd</artifactId>
+  <packaging>pom</packaging>
   <version>1.0-SNAPSHOT</version>
 
   <description>Quote Of The Day - Assessment application</description>
@@ -16,6 +17,13 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <vertx.verticle>io.vertx.gsoc2018.qotd.QuoteOfTheDayVerticle</vertx.verticle>
   </properties>
+
+  <modules>
+    <module>model</module>
+    <module>data</module>
+    <module>service</module>
+    <module>web</module>
+  </modules>
 
   <dependencyManagement>
     <dependencies>
@@ -30,19 +38,6 @@
   </dependencyManagement>
 
   <dependencies>
-    <dependency>
-      <groupId>io.vertx</groupId>
-      <artifactId>vertx-web</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.vertx</groupId>
-      <artifactId>vertx-jdbc-client</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.h2database</groupId>
-      <artifactId>h2</artifactId>
-      <version>1.4.196</version>
-    </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-unit</artifactId>
