@@ -38,10 +38,6 @@ public class QotdStore {
       }, err -> LOGGER.error("Error in initializing database: " + err.getMessage()));
   }
 
-  public void addQuote(Quote quote) {
-
-  }
-
   public Flowable<Quote> getAllQuotes() {
     return jdbcClient.rxGetConnection()
       .flatMap(conn -> conn.rxQuery("SELECT * FROM quotes").doFinally(conn::close))

@@ -1,5 +1,6 @@
 package io.vertx.gsoc2018.qotd;
 
+import io.reactivex.Flowable;
 import io.vertx.core.Future;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
@@ -27,16 +28,26 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
     router.route().handler(BodyHandler.create());
     router.get("/quotes").handler(this::getQuotesHandler);
     router.post("/quotes").handler(this::addQuoteHandler);
-    //router.route("/realtime/*").handler(this::realTimeHandler);
 
-    vertx.createHttpServer().requestHandler(router::accept).rxListen(port)
+    vertx.createHttpServer()
+      .websocketHandler(serverWebSocket -> {
+        if(serverWebSocket.path().equals("/realtime")) {
+          serverWebSocket.accept();
+          quoteOfTheDayService.getAllQuotes()
+            .flattenAsFlowable(quotes -> quotes)
+            .lastOrError()
+            .subscribe(quote -> {
+              serverWebSocket.writeTextMessage(Json.encode(quote));
+            }, err -> LOGGER.error(err.getMessage()));
+        } else {
+          serverWebSocket.reject();
+        }
+      })
+      .requestHandler(router::accept).rxListen(port)
       .subscribe(res -> {
         LOGGER.info("Initialized http server successfully");
+        startFuture.complete();
       }, err -> LOGGER.error("Failed to initialize http server: " + err.getMessage()));
-
-    vertx.eventBus().consumer("realtime", message -> {
-      LOGGER.info("Received message on websocket: " + message.body());
-    });
   }
 
   public void getQuotesHandler(RoutingContext routingContext) {
@@ -46,10 +57,11 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
   }
 
   public void addQuoteHandler(RoutingContext routingContext) {
-    String text = routingContext.request().getParam("text");
-    String author = routingContext.request().getParam("author");
+    JsonObject requestBody = routingContext.getBodyAsJson();
+    String text = requestBody.getString("text");
+    String author = requestBody.getString("author");
     if(text == null) {
-      routingContext.response().setStatusCode(404).end();
+      routingContext.response().setStatusCode(400).end();
       return;
     }
     if(author == null || author.equals("")) author = "Unknown";
@@ -57,7 +69,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
     quoteOfTheDayService.insertQuote(quote).subscribe(res -> {
       if(res) {
         vertx.eventBus().publish("realtime", Json.encode(quote));
-        routingContext.response().end("Successfully added quote");
+        routingContext.response().end(Json.encode(quote));
       } else {
         routingContext.response().end("Some error occurred");
       }
