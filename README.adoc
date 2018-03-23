@@ -22,7 +22,8 @@ In a terminal, run:
 
 [source,shell]
 ----
-mvn vertx:run
+mvn clean vertx:initialize
+mvn -pl :web vertx:run
 ----
 
 This will start the application on port `8080`. Application is redeployed when source code changes.
