@@ -56,7 +56,18 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
     router.post("/quotes").handler(this::addQuoteHandler);
 
     vertx.createHttpServer()
-      .requestHandler(router::accept).rxListen(port)
+      .requestHandler(router::accept)
+      .websocketHandler(serverWebSocket -> {
+        if(serverWebSocket.path().equals("/realtime")) {
+          serverWebSocket.accept();
+          vertx.eventBus().consumer("realtime", message -> {
+            serverWebSocket.writeTextMessage(message.body().toString());
+          });
+        } else {
+          serverWebSocket.reject();
+        }
+      })
+      .rxListen(port)
       .subscribe(res -> {
         LOGGER.info("Initialized http server successfully");
         startFuture.complete();
@@ -95,6 +106,7 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
       .map(res -> !res.isEmpty())
       .subscribe(res -> {
       if(res) {
+        vertx.eventBus().publish("realtime", Json.encode(quote));
         routingContext.response().end(Json.encode(quote));
       } else {
         routingContext.response().end("Some error occurred");
