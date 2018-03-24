@@ -1,16 +1,20 @@
 package io.vertx.gsoc2018.qotd;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
+import io.reactivex.Single;
+
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.jdbc.JDBCClient;
-import io.vertx.ext.sql.SQLConnection;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.Future;
+import io.vertx.reactivex.core.AbstractVerticle;
+import io.vertx.reactivex.ext.jdbc.JDBCClient;
 
 /**
  * @author Thomas Segismont
  */
 public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
+  private final Logger LOGGER = LoggerFactory.getLogger(QuoteOfTheDayVerticle.class);
   private JDBCClient jdbcClient;
 
   @Override
@@ -21,32 +25,28 @@ public class QuoteOfTheDayVerticle extends AbstractVerticle {
 
     jdbcClient = JDBCClient.createShared(vertx, jdbcConfig);
 
-    Future<Void> initSchema = runScript("classpath:db.sql");
-    Future<Void> importData = runScript("classpath:import.sql");
+    Single<Boolean> initSchema = runScript("classpath:db.sql");
+    Single<Boolean> importData = runScript("classpath:import.sql");
 
-    int port = config().getInteger("http.port", 8080);
-
-    // TODO setup database and web server and eventually...
-    startFuture.complete();
+    Single.concat(initSchema, importData)
+      .all(res -> res)
+      .subscribe(res -> {
+        if(res) {
+          LOGGER.info("Initialized database successfully");
+          startFuture.complete();
+        } else {
+          LOGGER.error("Error in initializing database");
+        }
+      }, err -> LOGGER.error("Error in initializing database: " + err.getMessage()));
   }
 
-  private Future<Void> runScript(String script) {
-    Future<Void> future = Future.future();
-    jdbcClient.getConnection(getConn -> {
-      if (getConn.succeeded()) {
-        SQLConnection connection = getConn.result();
-        connection.execute("RUNSCRIPT FROM '" + script + "'", exec -> {
-          connection.close();
-          if (exec.succeeded()) {
-            future.complete();
-          } else {
-            future.fail(exec.cause());
-          }
-        });
-      } else {
-        future.fail(getConn.cause());
-      }
-    });
-    return future;
+  private Single<Boolean> runScript(String script) {
+    return jdbcClient.rxGetConnection()
+      .flatMap(conn -> {
+        Single<Boolean> res = conn.rxExecute("RUNSCRIPT FROM '" + script + "'")
+          .toSingleDefault(true)
+          .onErrorReturnItem(false);
+        return res.doFinally(conn::close);
+      });
   }
 }
